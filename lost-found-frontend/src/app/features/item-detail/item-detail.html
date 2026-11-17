@@ -113,7 +113,12 @@
         Mark as returned
       </button>
     } @else {
-      <button type="button" class="btn btn--primary btn--block" (click)="messageFinder()">
+      <button
+        type="button"
+        class="btn btn--primary btn--block"
+        [disabled]="busy()"
+        (click)="messageFinder()"
+      >
         This is mine · Message finder
       </button>
     }

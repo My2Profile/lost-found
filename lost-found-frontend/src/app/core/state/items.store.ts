@@ -111,6 +111,19 @@ export class ItemsStore {
     }
   }
 
+  /** Make sure the item with this backend id is loaded (chat list). */
+  async loadById(id: string): Promise<Item | undefined> {
+    const known = this.items().find((i) => i.id === id);
+    if (known) return known;
+    try {
+      const item = await firstValueFrom(this.api.getById(id));
+      this.extra.update((list) => [item, ...list.filter((i) => i.no !== item.no)]);
+      return item;
+    } catch {
+      return undefined;
+    }
+  }
+
   /** How many other people's saved searches this draft would notify. */
   countMatchingSearches(draft: Matchable): number {
     const me = this.auth.currentUser()?.id;

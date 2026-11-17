@@ -69,11 +69,16 @@ export class ItemDetail {
       : this.chat.forItem(no);
   });
 
+  /** Only the id, so new messages don't re-run the open/close effect. */
+  private readonly threadId = computed(() => this.thread()?.id);
+
   protected readonly otherPerson = computed(() => {
     if (!this.isFinder()) return this.finder();
-    const otherId = this.thread()?.participants.find((p) => p !== this.me()?.id);
-    return this.auth.users().find((u) => u.id === otherId);
+    const thread = this.thread();
+    return thread ? { name: thread.otherName, initials: initialsOf(thread.otherName) } : undefined;
   });
+
+  protected readonly busy = signal(false);
 
   protected readonly photoIndex = signal(0);
   protected readonly photoCount = computed(() => Math.max(1, this.item()?.photos.length ?? 0));
@@ -89,6 +94,14 @@ export class ItemDetail {
           .then((item) => this.loadState.set(item ? 'ready' : 'missing'))
           .catch(() => this.loadState.set('error'));
       });
+    });
+
+    // Load history and go live for the conversation shown in the side panel.
+    effect((onCleanup) => {
+      const id = this.threadId();
+      if (!id) return;
+      untracked(() => this.chat.open(id));
+      onCleanup(() => this.chat.close(id));
     });
 
     // Opening the page counts as reading the chat (only where it's visible).
@@ -111,21 +124,32 @@ export class ItemDetail {
     });
   }
 
-  protected send(text: string): void {
+  protected async send(text: string): Promise<void> {
     const item = this.item();
     if (!item) return;
     this.rememberFinder();
-    const thread = this.thread() ?? this.chat.openOrCreate(item.no, item.finderId);
-    this.chat.send(thread.id, text);
+    try {
+      const thread = this.thread() ?? (await this.chat.openOrCreate(item));
+      await this.chat.send(thread.id, text);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not start the chat.');
+    }
   }
 
   /** Mobile CTA: "This is mine · Message finder". */
-  protected messageFinder(): void {
+  protected async messageFinder(): Promise<void> {
     const item = this.item();
-    if (!item) return;
+    if (!item || this.busy()) return;
     this.rememberFinder();
-    const thread = this.chat.openOrCreate(item.no, item.finderId);
-    this.router.navigate(['/chats', thread.id]);
+    this.busy.set(true);
+    try {
+      const thread = this.thread() ?? (await this.chat.openOrCreate(item));
+      await this.router.navigate(['/chats', thread.id]);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not start the chat.');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   /** So the (local) chat list can show the finder's name. */
