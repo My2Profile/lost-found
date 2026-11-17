@@ -152,7 +152,10 @@ export class PostItem {
         description: v.description.trim(),
         photos: this.photos(),
       });
-      await this.router.navigate(['/item', item.no]);
+      // The item is saved. If the page can't open (e.g. the site was just updated
+      // and old files are gone), load it fresh instead of showing "could not post".
+      const opened = await this.router.navigate(['/item', item.no]).catch(() => false);
+      if (!opened) window.location.assign(`/item/${item.no}`);
     } catch (error) {
       this.showServerErrors(error);
     } finally {

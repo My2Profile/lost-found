@@ -30,6 +30,9 @@ import { ChatThread } from '../../shared/ui/chat-thread';
           [messages]="thread.messages"
           [meId]="me.id"
           [canWrite]="item()?.status === 'open'"
+          [closedText]="
+            item()?.status === 'returned' ? 'This item was returned. The chat is closed.' : null
+          "
           [placeholder]="'Write to ' + (other()?.name ?? 'them') + '…'"
           emptyText="Say hi, and describe something only the owner would know."
           [actionLabel]="canMarkReturned() ? 'Mark as returned' : null"
@@ -79,7 +82,7 @@ export class ChatPage {
     // The listing gives the title and whether it's still open (can write).
     effect(() => {
       const no = this.thread()?.itemNo;
-      if (no) untracked(() => void this.itemsStore.load(no).catch(() => undefined));
+      if (no) untracked(() => void this.itemsStore.reload(no).catch(() => undefined));
     });
 
     // Keep the thread marked read while it's open, even as new messages arrive.

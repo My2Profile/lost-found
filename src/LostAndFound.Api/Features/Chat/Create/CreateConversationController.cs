@@ -1,4 +1,5 @@
 using LostAndFound.Api.Features.Chat;
+using LostAndFound.Api.Features.Items;
 using LostAndFound.Api.Infrastructure.Persistence;
 using LostAndFound.Api.Features.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -42,7 +43,8 @@ public sealed class CreateConversationController(
             {
                 x.Id,
                 x.UserFoundId,
-                x.FinderName
+                x.FinderName,
+                x.Status
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -75,6 +77,14 @@ public sealed class CreateConversationController(
         if (existing is not null)
         {
             return Ok(ToResponse(existing));
+        }
+
+        if (item.Status != FoundItemStatus.Open)
+        {
+            return Conflict(new
+            {
+                message = "Вещь уже возвращена, новый чат открыть нельзя."
+            });
         }
 
         var conversation = new Conversation

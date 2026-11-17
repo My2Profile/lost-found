@@ -172,6 +172,11 @@ export class ChatStore {
       } catch (error) {
         // 4xx (except timeout / rate limit) will fail the same way again.
         const status = error instanceof ApiError ? error.status : 0;
+        if (status === 409) {
+          // Most likely the item was returned and the chat closed.
+          const itemId = this.convs()[threadId]?.itemId;
+          if (itemId) void this.itemsStore.reloadById(itemId);
+        }
         const retryable = status === 0 || status >= 500 || status === 408 || status === 429;
         if (!retryable || attempt === SEND_ATTEMPTS) break;
         await sleep(1000 * attempt);
@@ -234,6 +239,11 @@ export class ChatStore {
       this.convs.set(next);
       this.loaded.set(true);
       stale.forEach((id) => void this.loadHistory(id));
+      // The item may have been returned meanwhile: that closes the chat.
+      for (const id of this.active.keys()) {
+        const itemId = next[id]?.itemId;
+        if (itemId) void this.itemsStore.reloadById(itemId);
+      }
     } catch {
       // Keep what we have; the next poll tries again.
       this.loaded.set(true);

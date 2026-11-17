@@ -1,5 +1,14 @@
 import { LowerCasePipe } from '@angular/common';
-import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService, initialsOf } from '../../core/auth/auth.service';
 import { User } from '../../core/models/models';
@@ -62,12 +71,21 @@ export class ItemDetail {
    * Which conversation to show. Someone who lost it: their own thread with the
    * finder. The finder: the latest thread about this item.
    */
+  /** Finder: every conversation about this item (several people may claim it). */
+  protected readonly itemThreads = computed(() =>
+    this.chat.threads().filter((t) => t.itemNo === this.no()),
+  );
+  protected readonly selectedThreadId = signal<string | null>(null);
+
   protected readonly thread = computed(() => {
-    const no = this.no();
-    return this.isFinder()
-      ? this.chat.threads().find((t) => t.itemNo === no)
-      : this.chat.forItem(no);
+    if (!this.isFinder()) return this.chat.forItem(this.no());
+    const all = this.itemThreads();
+    return all.find((t) => t.id === this.selectedThreadId()) ?? all[0];
   });
+
+  protected readonly closedText = computed(() =>
+    this.item()?.status === 'returned' ? 'This item was returned. The chat is closed.' : null,
+  );
 
   /** Only the id, so new messages don't re-run the open/close effect. */
   private readonly threadId = computed(() => this.thread()?.id);
@@ -84,6 +102,14 @@ export class ItemDetail {
   protected readonly photoCount = computed(() => Math.max(1, this.item()?.photos.length ?? 0));
 
   constructor() {
+    // Re-check the status while the page is open (the finder may mark it returned).
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void this.itemsStore.reload(this.no()).catch(() => undefined);
+      }
+    }, 20_000);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+
     // Load the item by its number (deep link, refresh, or not in the Browse list).
     effect(() => {
       const no = this.no();

@@ -63,6 +63,8 @@ import { ChatMessage } from '../../core/models/models';
           }
         </div>
       </form>
+    } @else if (closedText(); as closed) {
+      <p class="closed">{{ closed }}</p>
     } @else if (actionLabel(); as label) {
       <div class="actions actions--only">
         <button class="btn btn--secondary action" type="button" (click)="action.emit()">
@@ -79,6 +81,8 @@ export class ChatThread {
   readonly placeholder = input('Write a message…');
   readonly emptyText = input('No messages yet.');
   readonly canWrite = input(true);
+  /** Shown instead of the composer when writing is not possible, e.g. the item was returned. */
+  readonly closedText = input<string | null>(null);
   /** Optional second button next to Send, e.g. "Mark as returned" for the finder. */
   readonly actionLabel = input<string | null>(null);
   readonly send = output<string>();

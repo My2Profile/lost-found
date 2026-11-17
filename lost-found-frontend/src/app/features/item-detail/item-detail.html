@@ -84,12 +84,32 @@
       }
 
       <!-- Chat (desktop panel, D2) -->
+      @if (isFinder() && itemThreads().length > 1) {
+        <div class="claimants" role="tablist" aria-label="People who messaged">
+          @for (t of itemThreads(); track t.id) {
+            <button
+              type="button"
+              role="tab"
+              class="claimant"
+              [class.active]="t.id === thread()?.id"
+              [attr.aria-selected]="t.id === thread()?.id"
+              (click)="selectedThreadId.set(t.id)"
+            >
+              {{ t.otherName }}
+              @if (t.unread > 0) {
+                <span class="dot" aria-label="unread"></span>
+              }
+            </button>
+          }
+        </div>
+      }
       @if (me(); as me) {
         <app-chat-thread
           class="chat"
           [messages]="thread()?.messages ?? []"
           [meId]="me.id"
           [canWrite]="isOpen() && (!isFinder() || !!thread())"
+          [closedText]="closedText()"
           [placeholder]="'Write to ' + (otherPerson()?.name ?? 'the finder') + '…'"
           [emptyText]="
             isFinder()

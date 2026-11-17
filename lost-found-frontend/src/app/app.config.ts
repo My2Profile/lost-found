@@ -10,6 +10,7 @@ import {
   provideRouter,
   withComponentInputBinding,
   withInMemoryScrolling,
+  withNavigationErrorHandler,
 } from '@angular/router';
 import { routes } from './app.routes';
 import { apiErrorInterceptor } from './core/api/api-error.interceptor';
@@ -29,6 +30,10 @@ export const appConfig: ApplicationConfig = {
       // Route params (:no) and query params (?q=) arrive as component inputs.
       withComponentInputBinding(),
       withInMemoryScrolling({ scrollPositionRestoration: 'enabled' }),
+      // After a deploy the old page chunks are gone: load the new version instead of failing.
+      withNavigationErrorHandler((error) => {
+        if (isChunkLoadError(error.error)) window.location.assign(error.url);
+      }),
     ),
     // Order matters: apiErrorInterceptor is outermost, so authInterceptor still sees raw 401s.
     provideHttpClient(withFetch(), withInterceptors([apiErrorInterceptor, authInterceptor])),
@@ -37,3 +42,10 @@ export const appConfig: ApplicationConfig = {
     { provide: TitleStrategy, useClass: PageTitleStrategy },
   ],
 };
+
+function isChunkLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /dynamically imported module|Importing a module script failed|Loading chunk|MIME type/i.test(
+    message,
+  );
+}

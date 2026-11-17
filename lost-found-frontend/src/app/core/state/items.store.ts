@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../api/api-error.interceptor';
 import { ApiFoundItemStatus } from '../api/api.types';
@@ -29,6 +29,8 @@ export interface ItemDraft {
 
 /** Enough for Browse in the MVP. Server-side filters + paging come with US-04. */
 const BROWSE_PAGE_SIZE = 100;
+/** Browse and "My posts" refresh in the background this often (and when the tab is shown). */
+const AUTO_REFRESH_MS = 30_000;
 
 /**
  * Items feature store: the one place that knows how items are read and changed.
@@ -83,12 +85,56 @@ export class ItemsStore {
       const userId = this.auth.currentUser()?.id;
       untracked(() => (userId ? this.refresh() : this.clear()));
     });
+
+    // Keep lists fresh without a page reload: other people post and return items too.
+    const quietRefresh = () => {
+      if (this.auth.currentUser() && document.visibilityState === 'visible') this.refresh(true);
+    };
+    const timer = setInterval(quietRefresh, AUTO_REFRESH_MS);
+    document.addEventListener('visibilitychange', quietRefresh);
+    inject(DestroyRef).onDestroy(() => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', quietRefresh);
+    });
   }
 
-  /** Reload Browse and "Posted by me" from the API. */
-  refresh(): void {
-    void this.loadOpen();
+  /** Reload Browse and "Posted by me" from the API. `quiet`: no loading state. */
+  refresh(quiet = false): void {
+    void this.loadOpen(quiet);
     void this.loadMine();
+  }
+
+  /** Fetch one item again (status may have changed) and update every list. */
+  async reload(no: string): Promise<Item | undefined> {
+    if (!/^\d+$/.test(no)) return undefined;
+    try {
+      const item = await firstValueFrom(this.api.getByNo(no));
+      this.applyFresh(item);
+      return item;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return undefined;
+      throw error;
+    }
+  }
+
+  /** Same as reload(), by backend id. */
+  async reloadById(id: string): Promise<Item | undefined> {
+    try {
+      const item = await firstValueFrom(this.api.getById(id));
+      this.applyFresh(item);
+      return item;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private applyFresh(item: Item): void {
+    const replace = (list: Item[]) => list.map((i) => (i.no === item.no ? item : i));
+    this.openList.update((list) =>
+      item.status === 'open' ? replace(list) : list.filter((i) => i.no !== item.no),
+    );
+    this.myList.update(replace);
+    this.extra.update((list) => [item, ...list.filter((i) => i.no !== item.no)]);
   }
 
   byNo(no: string): Item | undefined {
@@ -217,15 +263,23 @@ export class ItemsStore {
     }));
   }
 
-  private async loadOpen(): Promise<void> {
-    this.loading.set(true);
-    this.error.set(null);
+  private async loadOpen(quiet = false): Promise<void> {
+    if (!quiet) {
+      this.loading.set(true);
+      this.error.set(null);
+    }
     try {
       const page = await firstValueFrom(
         this.api.search({ status: ApiFoundItemStatus.Open, pageSize: BROWSE_PAGE_SIZE }),
       );
       this.openList.set(page.items);
+      this.error.set(null);
+      // An item that left the open list (returned) must not stay "open" in the other lists.
+      const openNos = new Set(page.items.map((i) => i.no));
+      const stale = this.items().filter((i) => i.status === 'open' && !openNos.has(i.no) && i.id);
+      stale.slice(0, 10).forEach((i) => void this.reloadById(i.id as string));
     } catch (error) {
+      if (quiet) return;
       this.error.set(error instanceof Error ? error.message : 'Could not load items.');
     } finally {
       this.loading.set(false);
