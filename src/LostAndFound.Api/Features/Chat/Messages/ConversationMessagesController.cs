@@ -3,6 +3,7 @@ using LostAndFound.Api.Features.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Identity.Web.Resource;
+using LostAndFound.Api.Features.Chat;
 
 namespace LostAndFound.Api.Features.Chat.Messages;
 
@@ -10,7 +11,7 @@ namespace LostAndFound.Api.Features.Chat.Messages;
 [Route("api/conversations/{conversationId:guid}/messages")]
 [Authorize]
 [RequiredScope("access_as_user")]
-public sealed class ConversationMessagesController(ChatMessageService messages) : ControllerBase
+public sealed class ConversationMessagesController(ChatMessageService messages, ChatEvents events) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Send(Guid conversationId, [FromBody] SendChatMessageRequest request, CancellationToken cancellationToken)
@@ -46,6 +47,14 @@ public sealed class ConversationMessagesController(ChatMessageService messages) 
             return Conflict(new
             {
                 message = "Этот ClientMessageId уже использован для другого текста"
+            });
+        }
+        if (result.Created)
+        {
+            events.Publish(conversationId, new
+            {
+                type = "message",
+                message = ChatMessageResponse.From(result.Message)
             });
         }
 

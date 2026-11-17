@@ -17,6 +17,10 @@ public sealed class Conversation
 
     [BsonGuidRepresentation(GuidRepresentation.Standard)]
     public Guid InitiatorUserId { get; init; }
+    
+    public string OwnerName { get; init; } = "Student";
+
+    public string InitiatorName { get; init; } = "Student";
 
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;

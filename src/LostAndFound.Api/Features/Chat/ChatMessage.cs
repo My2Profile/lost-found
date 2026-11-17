@@ -20,6 +20,8 @@ public sealed class ChatMessage
 
     public string Text { get; init; } = string.Empty;
 
+    public bool IsRead { get; set; }
+    
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }

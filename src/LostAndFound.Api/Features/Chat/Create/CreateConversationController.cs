@@ -1,9 +1,9 @@
 using LostAndFound.Api.Features.Chat;
 using LostAndFound.Api.Infrastructure.Persistence;
+using LostAndFound.Api.Features.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.Resource;
 using MongoDB.Driver;
 
@@ -22,7 +22,7 @@ public sealed class CreateConversationController(
         [FromBody] CreateConversationRequest request,
         CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(User.GetObjectId(), out var userId))
+        if (User.GetUserId() is not { } userId)
         {
             return Unauthorized();
         }
@@ -38,7 +38,12 @@ public sealed class CreateConversationController(
         var item = await db.FoundItems
             .AsNoTracking()
             .Where(x => x.Id == request.FoundItemId)
-            .Select(x => new { x.Id, x.UserFoundId })
+            .Select(x => new
+            {
+                x.Id,
+                x.UserFoundId,
+                x.FinderName
+            })
             .SingleOrDefaultAsync(cancellationToken);
 
         if (item is null)
@@ -76,7 +81,9 @@ public sealed class CreateConversationController(
         {
             FoundItemId = item.Id,
             OwnerUserId = item.UserFoundId,
-            InitiatorUserId = userId
+            InitiatorUserId = userId,
+            OwnerName = item.FinderName,
+            InitiatorName = User.GetDisplayName()
         };
 
         try

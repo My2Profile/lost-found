@@ -3,6 +3,8 @@ using LostAndFound.Api.Features.Identity;
 using LostAndFound.Api.Features.Items.Photos;
 using LostAndFound.Api.Infrastructure.Persistence;
 using LostAndFound.Api.Infrastructure.Storage;
+using LostAndFound.Api.Features.Chat;
+using LostAndFound.Api.Features.Chat.Live;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -76,6 +78,8 @@ builder.Services.AddSingleton<IMongoDatabase>(services =>
     services.GetRequiredService<IMongoClient>().GetDatabase(mongoDatabaseName));
 builder.Services.AddSingleton<ChatDbContext>();
 builder.Services.AddScoped<ChatMessageService>();
+builder.Services.AddSingleton<ChatEvents>();
+builder.Services.AddSingleton<ChatTickets>();
 
 var app = builder.Build();
 
@@ -95,6 +99,11 @@ if (app.Environment.IsDevelopment())
 await ChatIndexes.EnsureCreatedAsync(app.Services.GetRequiredService<ChatDbContext>());
 
 app.UseHttpsRedirection();
+
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(30)
+});
 
 app.UseAuthentication();
 app.UseAuthorization();

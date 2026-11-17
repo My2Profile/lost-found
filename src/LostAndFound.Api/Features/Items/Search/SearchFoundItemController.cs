@@ -8,16 +8,18 @@ using Microsoft.Identity.Web.Resource;
 
 namespace LostAndFound.Api.Features.Items.Search;
 
-/// <summary>US-03: browse found items by category (and status), newest first, paged.</summary>
 [ApiController]
 [Route("api/items")]
 [Authorize]
 [RequiredScope("access_as_user")]
-public sealed class SearchFoundItemsController(AppDbContext db) : ControllerBase
+public sealed class SearchFoundItemsController(
+    AppDbContext db,
+    TimeProvider clock) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType<SearchFoundItemsResponse>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Search([FromQuery] SearchFoundItemsRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Search(
+        [FromQuery] SearchFoundItemsRequest request,
+        CancellationToken cancellationToken)
     {
         var query = db.FoundItems.AsNoTracking();
 
@@ -25,18 +27,54 @@ public sealed class SearchFoundItemsController(AppDbContext db) : ControllerBase
         {
             query = query.Where(x => x.Category == category);
         }
+
         if (request.Status is { } status)
         {
             query = query.Where(x => x.Status == status);
         }
+        else if (!request.Mine)
+        {
+            query = query.Where(
+                x => x.Status == FoundItemStatus.Open);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Cabinet))
         {
             var cabinet = request.Cabinet.Trim();
+
             query = query.Where(x => x.Cabinet == cabinet);
         }
+
+        if (request.Period is { } period)
+        {
+            var now = clock.GetUtcNow();
+
+            var since = period switch
+            {
+                ItemTimePeriod.Today =>
+                    new DateTimeOffset(
+                        now.ToOffset(TimeSpan.FromHours(5)).Date,
+                        TimeSpan.FromHours(5))
+                    .ToUniversalTime(),
+
+                ItemTimePeriod.Last7Days => now.AddDays(-7),
+
+                ItemTimePeriod.Last30Days => now.AddDays(-30),
+
+                _ => throw new InvalidOperationException()
+            };
+
+            query = query.Where(
+                x => x.FoundAt >= since && x.FoundAt <= now);
+        }
+
         if (request.Mine)
         {
-            if (User.GetUserId() is not { } userId) return Unauthorized();
+            if (User.GetUserId() is not { } userId)
+            {
+                return Unauthorized();
+            }
+
             query = query.Where(x => x.UserFoundId == userId);
         }
 
@@ -50,8 +88,19 @@ public sealed class SearchFoundItemsController(AppDbContext db) : ControllerBase
             .Select(FoundItemDto.Projection)
             .ToListAsync(cancellationToken);
 
-        return Ok(new SearchFoundItemsResponse(items, totalCount, request.Page, request.PageSize));
+        return Ok(new SearchFoundItemsResponse(
+            items,
+            totalCount,
+            request.Page,
+            request.PageSize));
     }
+}
+
+public enum ItemTimePeriod
+{
+    Today,
+    Last7Days,
+    Last30Days
 }
 
 public sealed class SearchFoundItemsRequest
@@ -62,10 +111,12 @@ public sealed class SearchFoundItemsRequest
     [EnumDataType(typeof(FoundItemStatus))]
     public FoundItemStatus? Status { get; init; }
 
+    [EnumDataType(typeof(ItemTimePeriod))]
+    public ItemTimePeriod? Period { get; init; }
+
     [StringLength(100)]
     public string? Cabinet { get; init; }
 
-    /// <summary>Only items the current user posted ("Posted by me").</summary>
     public bool Mine { get; init; }
 
     [Range(1, 1_000_000)]
