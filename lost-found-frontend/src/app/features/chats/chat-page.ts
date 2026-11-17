@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, input, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth/auth.service';
+import { AuthService, initialsOf } from '../../core/auth/auth.service';
 import { AlertsStore } from '../../core/state/alerts.store';
 import { ChatStore } from '../../core/state/chat.store';
 import { ItemsStore } from '../../core/state/items.store';
@@ -19,7 +19,7 @@ import { ChatThread } from '../../shared/ui/chat-thread';
         <div class="who">
           <p class="name">{{ other()?.name ?? 'Someone' }}</p>
           <a class="about" [routerLink]="['/item', thread.itemNo]">
-            {{ item()?.title ?? 'Item' }} · Nº {{ thread.itemNo }}
+            {{ item()?.title ?? 'Item' }} · Nº {{ thread.itemNo || '…' }}
           </a>
         </div>
       </header>
@@ -37,6 +37,8 @@ import { ChatThread } from '../../shared/ui/chat-thread';
           (action)="markReturned()"
         />
       }
+    } @else if (!chat.loaded()) {
+      <p class="missing" aria-busy="true">Loading chat…</p>
     } @else {
       <p class="missing">This chat doesn't exist. <a routerLink="/chats">All chats</a></p>
     }
@@ -59,14 +61,27 @@ export class ChatPage {
     return thread ? this.itemsStore.byNo(thread.itemNo) : undefined;
   });
   protected readonly other = computed(() => {
-    const otherId = this.thread()?.participants.find((p) => p !== this.me()?.id);
-    return this.auth.users().find((u) => u.id === otherId);
+    const thread = this.thread();
+    return thread ? { name: thread.otherName, initials: initialsOf(thread.otherName) } : undefined;
   });
   protected readonly canMarkReturned = computed(
     () => this.item()?.status === 'open' && this.item()?.finderId === this.me()?.id,
   );
 
   constructor() {
+    // Load history and go live while this page is open.
+    effect((onCleanup) => {
+      const id = this.id();
+      untracked(() => this.chat.open(id));
+      onCleanup(() => this.chat.close(id));
+    });
+
+    // The listing gives the title and whether it's still open (can write).
+    effect(() => {
+      const no = this.thread()?.itemNo;
+      if (no) untracked(() => void this.itemsStore.load(no).catch(() => undefined));
+    });
+
     // Keep the thread marked read while it's open, even as new messages arrive.
     effect(() => {
       const thread = this.thread();

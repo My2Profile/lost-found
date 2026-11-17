@@ -38,6 +38,21 @@
     color: var(--text-on-light);
   }
 
+  &.pending {
+    opacity: 0.6;
+  }
+
+  &.failed {
+    opacity: 0.75;
+    outline: 1px dashed currentColor;
+  }
+
+  .note {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
   @include mobile {
     border-radius: 12px 12px 12px 2px;
     font-size: 14px;

@@ -16,9 +16,9 @@ The repository contains an ASP.NET Core API and an Angular frontend. PostgreSQL 
 | Chat API | Two-person conversations, persistent history and duplicate-send protection |
 | Unread messages | Per-conversation counts and explicit read acknowledgement |
 | Live delivery | Native WebSocket with short-lived, single-use connection tickets |
-| Angular chat integration | Pending: the current chat UI still uses local demo data |
+| Angular chat integration | Chat list, unread badges, live thread over WebSocket with reconnect and history catch-up |
 
-Saved searches and alerts in the frontend are local demo features, not backend notification services. WebSocket reconnect and history recovery must be implemented by the client.
+Saved searches and alerts in the frontend are local demo features, not backend notification services.
 
 ## Stack
 
@@ -216,7 +216,7 @@ The backend GitHub Actions workflow builds an ARM64 image, pushes it to GHCR and
 
 The Docker image includes `/app/migrations.sql`; production deployment must apply the SQL separately. Persist `/app/App_Data/photos` in a writable volume when running the API container, and back it up along with both databases.
 
-The reverse proxy must support WebSocket upgrades and appropriate idle timeouts. Do not log the ticket query string. The current Angular development proxy does not yet configure WebSocket forwarding; use the API's direct address for Postman testing.
+The reverse proxy must support WebSocket upgrades and appropriate idle timeouts. Do not log the ticket query string. The Angular development proxy forwards WebSocket upgrades (`"ws": true` in `proxy.conf.json`).
 
 ## Development commands
 

@@ -1,6 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth/auth.service';
+import { initialsOf } from '../../core/auth/auth.service';
 import { ChatStore } from '../../core/state/chat.store';
 import { ItemsStore } from '../../core/state/items.store';
 import { TimeAgoPipe } from '../../shared/pipes/time.pipes';
@@ -35,7 +35,11 @@ import { Avatar } from '../../shared/ui/avatar';
         </li>
       } @empty {
         <li class="empty">
-          No chats yet. Open an item and tap “This is mine” to message the finder.
+          @if (loaded()) {
+            No chats yet. Open an item and tap “This is mine” to message the finder.
+          } @else {
+            Loading chats…
+          }
         </li>
       }
     </ul>
@@ -45,18 +49,17 @@ import { Avatar } from '../../shared/ui/avatar';
 export class ChatList {
   private readonly chat = inject(ChatStore);
   private readonly items = inject(ItemsStore);
-  private readonly auth = inject(AuthService);
+
+  protected readonly loaded = this.chat.loaded;
 
   /** A "view model": everything the template needs, precomputed. */
   protected readonly rows = computed(() => {
-    const me = this.auth.currentUser()?.id;
     return this.chat.threads().map((t) => {
-      const otherId = t.participants.find((p) => p !== me);
       return {
         id: t.id,
-        itemNo: t.itemNo,
+        itemNo: t.itemNo || '…',
         itemTitle: this.items.byNo(t.itemNo)?.title ?? 'Item',
-        other: this.auth.users().find((u) => u.id === otherId),
+        other: { name: t.otherName, initials: initialsOf(t.otherName) },
         last: t.messages.at(-1),
         unread: this.chat.isUnread(t),
       };

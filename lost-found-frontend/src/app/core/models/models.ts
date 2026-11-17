@@ -95,10 +95,18 @@ export interface AppNotification {
 }
 
 export interface ChatMessage {
+  /** Server message id (missing while a send is in flight). */
+  id?: string;
+  /** clientMessageId: generated per new message, reused on retry. */
+  clientId?: string;
   from: string;
   text: string;
   at: string;
   system?: boolean;
+  /** Sent, waiting for the server. */
+  pending?: boolean;
+  /** Could not be sent after retries. */
+  failed?: boolean;
 }
 
 export interface Thread {

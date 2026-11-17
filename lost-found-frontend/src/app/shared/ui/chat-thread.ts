@@ -20,11 +20,21 @@ import { ChatMessage } from '../../core/models/models';
   imports: [FormsModule],
   template: `
     <div class="messages" #scroller>
-      @for (message of messages(); track $index) {
+      @for (message of messages(); track message.id ?? message.clientId ?? $index) {
         @if (message.system) {
           <p class="system">{{ message.text }}</p>
         } @else {
-          <p class="bubble" [class.own]="message.from === meId()">{{ message.text }}</p>
+          <p
+            class="bubble"
+            [class.own]="message.from === meId()"
+            [class.pending]="message.pending"
+            [class.failed]="message.failed"
+          >
+            {{ message.text }}
+            @if (message.failed) {
+              <span class="note">Not sent. Check your connection and try again.</span>
+            }
+          </p>
         }
       } @empty {
         <p class="empty">{{ emptyText() }}</p>
