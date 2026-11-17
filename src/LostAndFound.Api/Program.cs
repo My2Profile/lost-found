@@ -1,3 +1,4 @@
+using LostAndFound.Api.Features.Chat.Messages;
 using LostAndFound.Api.Features.Identity;
 using LostAndFound.Api.Features.Items.Photos;
 using LostAndFound.Api.Infrastructure.Persistence;
@@ -42,7 +43,6 @@ else
         .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 }
 
-// Only KBTU accounts may use the app ("only KBTU students see and post items").
 var allowedDomain = builder.Configuration["Auth:AllowedEmailDomain"];
 builder.Services.AddAuthorization(options =>
 {
@@ -52,7 +52,6 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
-// ---- Data ----
 var connectionString = builder.Configuration.GetConnectionString("Postgres")
     ?? throw new InvalidOperationException("Connection string 'Postgres' is missing.");
 
@@ -76,6 +75,7 @@ builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoConnection
 builder.Services.AddSingleton<IMongoDatabase>(services =>
     services.GetRequiredService<IMongoClient>().GetDatabase(mongoDatabaseName));
 builder.Services.AddSingleton<ChatDbContext>();
+builder.Services.AddScoped<ChatMessageService>();
 
 var app = builder.Build();
 

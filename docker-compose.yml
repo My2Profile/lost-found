@@ -11,7 +11,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Chat storage. The API creates its indexes on start, so it must be running.
   mongo:
     image: mongo:8
     container_name: lostandfound-mongo
