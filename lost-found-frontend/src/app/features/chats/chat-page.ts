@@ -1,5 +1,5 @@
-import { Component, computed, effect, inject, input, untracked } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService, initialsOf } from '../../core/auth/auth.service';
 import { AlertsStore } from '../../core/state/alerts.store';
 import { ChatStore } from '../../core/state/chat.store';
@@ -22,6 +22,14 @@ import { ChatThread } from '../../shared/ui/chat-thread';
             {{ item()?.title ?? 'Item' }} · Nº {{ thread.itemNo || '…' }}
           </a>
         </div>
+        <button
+          type="button"
+          class="delete"
+          [disabled]="deleting()"
+          (click)="deleteChat(thread.id)"
+        >
+          Delete chat
+        </button>
       </header>
 
       @if (me(); as me) {
@@ -53,6 +61,7 @@ export class ChatPage {
   private readonly itemsStore = inject(ItemsStore);
   private readonly alerts = inject(AlertsStore);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   /** Route param :id */
   readonly id = input.required<string>();
@@ -110,6 +119,21 @@ export class ChatPage {
       } catch (error) {
         alert(error instanceof Error ? error.message : 'Could not mark it as returned.');
       }
+    }
+  }
+
+  protected readonly deleting = signal(false);
+
+  protected async deleteChat(id: string): Promise<void> {
+    if (!confirm('Delete this chat from your list? The other person will still see it.')) return;
+    this.deleting.set(true);
+    try {
+      await this.chat.remove(id);
+      await this.router.navigate(['/chats']);
+    } catch {
+      alert('Could not delete the chat. Please try again.');
+    } finally {
+      this.deleting.set(false);
     }
   }
 }

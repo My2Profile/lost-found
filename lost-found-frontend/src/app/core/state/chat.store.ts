@@ -185,6 +185,25 @@ export class ChatStore {
     this.patchMessages(threadId, [{ ...draft, pending: false, failed: true }]);
   }
 
+  /** Delete the chat from my list. Throws if the API refuses (the chat is put back). */
+  async remove(threadId: string): Promise<void> {
+    const removed = this.convs()[threadId];
+    if (!removed) return;
+    this.disconnect(threadId);
+    this.active.delete(threadId);
+    this.convs.update((all) => {
+      const { [threadId]: _gone, ...rest } = all;
+      return rest;
+    });
+    try {
+      await firstValueFrom(this.api.delete(threadId));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return; // already gone
+      this.convs.update((all) => ({ ...all, [threadId]: removed }));
+      throw error;
+    }
+  }
+
   /** Tell the API which incoming messages the user has seen. */
   markRead(threadId: string): void {
     const me = this.auth.currentUser()?.id;
@@ -214,7 +233,10 @@ export class ChatStore {
       if (this.auth.currentUser()?.id !== me.id) return;
 
       const prev = this.convs();
-      const next: Record<string, Conversation> = { ...prev };
+      // Chats missing from the API list were deleted (here or on another device).
+      // Keep only the ones a page has open, e.g. one created a moment ago.
+      const next: Record<string, Conversation> = {};
+      for (const id of this.active.keys()) if (prev[id]) next[id] = prev[id];
       const stale: string[] = [];
 
       for (const row of page.items) {

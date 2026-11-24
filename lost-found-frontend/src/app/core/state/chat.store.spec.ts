@@ -138,4 +138,21 @@ describe('ChatStore', () => {
     await sending;
     expect(chat.byId(CONV)?.messages.at(-1)).toMatchObject({ text: 'hello', failed: true });
   });
+
+  it('deletes a chat from my list and puts it back if the API fails', async () => {
+    const removing = chat.remove(CONV);
+    expect(chat.threads()).toHaveLength(0);
+    (
+      await nextRequest((r) => r.url === `/api/conversations/${CONV}` && r.method === 'DELETE')
+    ).flush({ title: 'boom' }, { status: 500, statusText: 'Server Error' });
+    await expect(removing).rejects.toBeTruthy();
+    expect(chat.threads()).toHaveLength(1);
+
+    const again = chat.remove(CONV);
+    (
+      await nextRequest((r) => r.url === `/api/conversations/${CONV}` && r.method === 'DELETE')
+    ).flush(null, { status: 204, statusText: 'No Content' });
+    await again;
+    expect(chat.threads()).toHaveLength(0);
+  });
 });

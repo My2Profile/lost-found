@@ -81,6 +81,10 @@ export interface SavedSearch {
   channel: NotifyChannel;
   on: boolean;
   newMatches: number;
+  /** When it was saved: only items posted after this notify (older ones are already in the list). */
+  createdAt?: string;
+  /** Item numbers already notified for this search, so each item notifies once. */
+  notified?: string[];
 }
 
 export interface AppNotification {

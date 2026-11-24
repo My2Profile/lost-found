@@ -66,6 +66,11 @@ export class ChatApiService {
     });
   }
 
+  /** Remove the chat from my list. The other person keeps it until they delete it too. */
+  delete(conversationId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${conversationId}`);
+  }
+
   /** Same clientMessageId on a retry: the API answers 200 with the saved message. */
   send(conversationId: string, clientMessageId: string, text: string): Observable<ApiChatMessage> {
     return this.http.post<ApiChatMessage>(`${this.baseUrl}/${conversationId}/messages`, {

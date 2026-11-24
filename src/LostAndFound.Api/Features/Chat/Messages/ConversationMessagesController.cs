@@ -14,7 +14,7 @@ namespace LostAndFound.Api.Features.Chat.Messages;
 [Route("api/conversations/{conversationId:guid}/messages")]
 [Authorize]
 [RequiredScope("access_as_user")]
-public sealed class ConversationMessagesController(ChatMessageService messages, ChatEvents events, AppDbContext db) : ControllerBase
+public sealed class ConversationMessagesController(ChatMessageService messages, ChatEvents events, AppDbContext db, ChatDbContext chatDb) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Send(Guid conversationId, [FromBody] SendChatMessageRequest request, CancellationToken cancellationToken)
@@ -69,6 +69,12 @@ public sealed class ConversationMessagesController(ChatMessageService messages, 
         }
         if (result.Created)
         {
+            // A new message brings a deleted chat back for both people.
+            await chatDb.Conversations.UpdateOneAsync(
+                MongoDB.Driver.Builders<Conversation>.Filter.Eq(x => x.Id, conversationId),
+                MongoDB.Driver.Builders<Conversation>.Update.Set(x => x.HiddenFor, new List<string>()),
+                cancellationToken: cancellationToken);
+
             events.Publish(conversationId, new
             {
                 type = "message",

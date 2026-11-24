@@ -76,6 +76,12 @@ public sealed class CreateConversationController(
 
         if (existing is not null)
         {
+            // "This is mine" again after deleting the chat: show it again.
+            await chatDb.Conversations.UpdateOneAsync(
+                Builders<Conversation>.Filter.Eq(x => x.Id, existing.Id),
+                Builders<Conversation>.Update.Pull(x => x.HiddenFor, userId.ToString()),
+                cancellationToken: cancellationToken);
+
             return Ok(ToResponse(existing));
         }
 

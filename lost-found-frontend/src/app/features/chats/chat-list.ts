@@ -32,6 +32,15 @@ import { Avatar } from '../../shared/ui/avatar';
               }
             </div>
           </a>
+          <button
+            type="button"
+            class="delete"
+            [attr.aria-label]="'Delete chat with ' + (row.other?.name ?? 'someone')"
+            title="Delete chat"
+            (click)="deleteChat(row.id)"
+          >
+            ×
+          </button>
         </li>
       } @empty {
         <li class="empty">
@@ -65,4 +74,13 @@ export class ChatList {
       };
     });
   });
+
+  protected async deleteChat(id: string): Promise<void> {
+    if (!confirm('Delete this chat from your list? The other person will still see it.')) return;
+    try {
+      await this.chat.remove(id);
+    } catch {
+      alert('Could not delete the chat. Please try again.');
+    }
+  }
 }

@@ -27,9 +27,11 @@ public sealed class ListConversationsController(
 
         var filters = Builders<Conversation>.Filter;
 
-        var filter = filters.Or(
-            filters.Eq(x => x.OwnerUserId, userId),
-            filters.Eq(x => x.InitiatorUserId, userId));
+        var filter = filters.And(
+            filters.Or(
+                filters.Eq(x => x.OwnerUserId, userId),
+                filters.Eq(x => x.InitiatorUserId, userId)),
+            filters.Not(filters.AnyEq(x => x.HiddenFor, userId.ToString())));
 
         var totalCount = await db.Conversations.CountDocumentsAsync(
             filter,

@@ -1,0 +1,21 @@
+name: backend-check
+
+# Compiles the API on every pull request, so a broken backend is caught before
+# merging (backend-image only builds after the merge to main).
+on:
+  pull_request:
+    paths-ignore: ['lost-found-frontend/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet build src/LostAndFound.Api/LostAndFound.Api.csproj -c Release
